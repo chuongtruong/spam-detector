@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Grommet } from 'grommet';
-import { Box, Text, Grid, FormField, TextInput, Button, Form } from 'grommet';
+import { Box, Text, Grid, FormField, TextInput, Button, Form, Spinner } from 'grommet';
 import { FaAws, FaFlask, FaPython, FaDocker, FaGithubSquare, FaLinkedin } from 'react-icons/fa';
 import { SiJavascript } from 'react-icons/si';
 
@@ -20,18 +20,34 @@ const theme = {
   }
 };
 
-const ResultCard = (({algorithmNo, label}) => {
+const ResultCard = (({algorithmName, label, url}) => {
   return (
-    <Box>
-      <Text>{algorithmNo}</Text>
-      <Text>{label}</Text>
+    <Box 
+      border
+      elevation='small'
+      round='small'
+      pad='small'
+      hoverIndicator='true'
+      style={{
+        'min-width': '15vw',
+        'min-height': '10vh'
+      }}
+      onClick={()=>{window.open(`${url}`)}}
+      >
+        <Text
+          weight='bold'
+          size='large'
+        >
+          {algorithmName}</Text>
+        <Text>{label === 0 ? 'NOT SPAM' : 'SPAM'}</Text>
     </Box>
     
   );
 })
 
 function App() {
-  const BACK_END_URL = '20.62.247.217';
+  const BACK_END_URL_LOCAL = 'http://localhost:5000/';
+  const BACK_END_URL_AWS = 'https://20.62.247.217';
 
   const [inputValue, setInputValue] = useState();
   const [isLoading, setIsLoading] = useState(false);
@@ -41,32 +57,39 @@ function App() {
 
   // for local testing purpose only
   const SAMPLE_RETURN_RESULT = {
-    'input': 'sample text',
-    'label1': '1',
-    'label2': '1',
+    "bert-tiny":{
+      "label":0,
+      "url":"https://huggingface.co/mrm8488/bert-tiny-finetuned-sms-spam-detection"
+    },
+    "roberta":{
+      "label":0,
+      "url":"https://huggingface.co/mariagrandury/roberta-base-finetuned-sms-spam-detection"
+    }
   }
-  
+
   const handleSubmit = async () => {
     setIsLoading(true);
-    try {  
-      const response = await fetch( BACK_END_URL, {
-          method: 'POST',
-          headers: {
-            Accept: 'application/json',
-          },
-          body: JSON.stringify({
-            'input': `${inputValue}`
-          })
-        });
+    try {
+      const myHeaders = new Headers();
+      myHeaders.append("Content-Type", "application/json");
 
-        if (!response.ok) {
-          throw new Error(`Error! status: ${response.status}`);
-        }
+      const raw = JSON.stringify({
+        "input": `${inputValue}`
+      });
 
-        console.log('result is: ', JSON.stringify(await response.json(), null, 4));
-        
-        setResult(result)
-    } catch (err) {
+      const requestOptions = {
+        method: 'POST',
+        headers: myHeaders,
+        body: raw,
+        redirect: 'follow'
+      };
+
+      fetch(BACK_END_URL_LOCAL, requestOptions)
+        .then(response => response.text())
+        .then(result => setResult(result))
+        .catch(error => console.log('error', error));
+    }
+    catch (err) {
       setErr(err.message);
     } finally {
       setIsLoading(false);
@@ -82,16 +105,17 @@ function App() {
             <Text>CS-152 Programming Paradigm</Text>
           </Box>
           {/* main section starts here */}
-          <Box 
+          <Box
+          elevation='medium' 
             round 
             background="light-1" 
             pad={{'left': 'large', 'right': 'large', 'top': 'large', 'bottom': 'large'}}
-            style={{ 'min-height': '75vh' }}>
+            style={{ 'min-height': '55vh' }}>
               {/* form starts here   */}
               <Form
-                onChange={nextValue => setInputValue(nextValue)}
+                onChange={nextValue => setInputValue(nextValue['text-input'])}
                 onReset={() => setInputValue({})}
-                onSubmit={({ value }) => {}}>
+                onSubmit={handleSubmit}>
                 <FormField name="text-input" htmlFor="text-input-id" label="Input">
                   <TextInput id="text-input-id" name="text-input"  placeholder="Type here..." />
                 </FormField>
@@ -102,18 +126,37 @@ function App() {
               </Form>
               {/* form ends here   */}
               {/* results section starts here */}
-                {/* {result && {
-                  [
-                    ['Alogrithm 1', 'label1'], 
-                    ['Alogrithm 1', 'label1']
-                  ].map((algo,label)=> {
-                    (<ResultCard
-                      algorithmNo={algo}, 
-                      label={label}
-                      />)
+              <Box 
+                direction='rows'
+                margin={{'top': '7px'}}
+                gap='small'
+                >
+                {isLoading && <Spinner message="Loading results" /> }
+                
+                {/* Rendering hardcoded results to the UI */}
+                { Object.keys(SAMPLE_RETURN_RESULT).map((algoName)=>{
+                    console.log("SAMPLE_RETURN_RESULT[`${algoName}`]['label']", SAMPLE_RETURN_RESULT[`${algoName}`]['label']);
+                    return(
+                      <ResultCard
+                        algorithmName={algoName}
+                        label={SAMPLE_RETURN_RESULT[`${algoName}`]['label']}
+                        url={SAMPLE_RETURN_RESULT[`${algoName}`]['url']}
+                    />)
                   })
-                }
-              } */}
+                } 
+                {/* Rendering result (from backend) to the UI */}
+                {/* { result && !err &&
+                  Object.keys(result).map((algoName)=>{
+                    return(
+                      <ResultCard
+                        algorithmName={algoName}
+                        label={result[`${algoName}`]['label']}
+                        url={result[`${algoName}`]['url']}
+                    />)
+                  })
+                }  */}
+              </Box>
+               
               {/* results section ends here */}
           </Box>
           {/* main section ends here */}
@@ -130,9 +173,21 @@ function App() {
               </Box>
               <Box gridArea="made-by" align='end'>
                 <Text size='medium'>
-                  by <Text weight='bold'>Chuong Truong</Text>&nbsp;&nbsp;<FaGithubSquare/> <FaLinkedin/>
+                  by <Text weight='bold'>Chuong Truong</Text>&nbsp;&nbsp;
+                  <FaGithubSquare 
+                    style={{'cursor': 'pointer'}} 
+                    onClick={()=>{window.open('https://github.com/chuongtruong')}}/>&nbsp;
+                  <FaLinkedin 
+                    style={{'cursor': 'pointer'}} 
+                    onClick={()=>{window.open('https://www.linkedin.com/in/chuong-trg/')}}/>
                   <br/>
-                     &nbsp;&nbsp;&nbsp;<Text weight='bold'>Chirag Kaudan</Text>&nbsp;&nbsp;<FaGithubSquare/> <FaLinkedin/>
+                     &nbsp;&nbsp;&nbsp;<Text weight='bold'>Chirag Kaudan</Text>&nbsp;&nbsp;
+                     <FaGithubSquare 
+                      style={{'cursor': 'pointer'}} 
+                        onClick={()=>{window.open('YOUR_GITHUB_URL')}}/>&nbsp;
+                     <FaLinkedin 
+                      style={{'cursor': 'pointer'}} 
+                      onClick={()=>{window.open('YOUR_LINKEDIN_URL')}}/>
                 </Text>
               </Box>
             </Grid>
