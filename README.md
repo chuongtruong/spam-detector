@@ -16,5 +16,5 @@ You may also see any lint errors in the console.
 
 ## Author
 
-Chuong Truong
-Chirag Kaudan
+-Chuong Truong
+-Chirag Kaudan
